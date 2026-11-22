@@ -2,7 +2,7 @@ name: Update VK Stream M3U8
 
 on:
   schedule:
-    - cron: '0 */3 * * *'
+    - cron: '15 */3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -23,12 +23,16 @@ jobs:
       - name: Install latest yt-dlp
         run: pip install -U yt-dlp
 
-      - name: Fetch fresh stream URL and write stream.m3u8
+      - name: Fetch fresh stream playlists and build playlist.m3u
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          GIT_BRANCH: ${{ github.ref_name }}
         run: python update_stream.py
 
-      - name: Commit and push if stream.m3u8 changed
+      - name: Commit and push if playlists changed
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add stream.m3u8
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update stream.m3u8" && git push)
+          git add "*.m3u8" playlist.m3u
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update stream playlists" && git push)
