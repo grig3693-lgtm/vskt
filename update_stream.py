@@ -56,31 +56,16 @@ def fetch_text(url: str, referer: str) -> str:
 
 def build_master_playlist(manifest_text: str, base_url: str) -> str:
     raw_lines = [line.rstrip("\r\n") for line in manifest_text.splitlines()]
-    has_extm3u = any(line.strip() == "#EXTM3U" for line in raw_lines)
+    output_lines: list[str] = ["#EXTM3U", "#EXT-X-VERSION:5"]
 
-    output_lines: list[str] = []
-    if not has_extm3u:
-        output_lines.append("#EXTM3U")
-
-    has_version = False
     for line in raw_lines:
         stripped = line.strip()
-        if not stripped:
+        if not stripped or stripped in ("#EXTM3U", "#EXT-X-INDEPENDENT-SEGMENTS"):
             continue
 
         if stripped.startswith("#EXT-X-VERSION:"):
-            output_lines.append("#EXT-X-VERSION:5")
-            has_version = True
             continue
 
-        if stripped == "#EXTM3U":
-            output_lines.append("#EXTM3U")
-            if not has_version:
-                output_lines.append("#EXT-X-VERSION:5")
-                has_version = True
-            continue
-
-        # Թարմացնում ենք URI="..." պարամետրերը (օրինակ՝ #EXT-X-MEDIA)
         if stripped.startswith("#") and 'URI="' in line:
             line = re.sub(
                 r'URI="([^"]+)"',
@@ -94,12 +79,9 @@ def build_master_playlist(manifest_text: str, base_url: str) -> str:
             output_lines.append(line)
             continue
 
-        # Հոսքի/սեգմենտի հղումները դարձնում ենք բացարձակ URL-ներ
         output_lines.append(urljoin(base_url, stripped))
 
-    if "#EXT-X-INDEPENDENT-SEGMENTS" not in [l.strip() for l in output_lines]:
-        output_lines.append("#EXT-X-INDEPENDENT-SEGMENTS")
-
+    output_lines.append("#EXT-X-INDEPENDENT-SEGMENTS")
     return "\n".join(output_lines) + "\n"
 
 
