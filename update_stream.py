@@ -1,12 +1,12 @@
 import subprocess
 import sys
 
-VIDEO_URL = "https://rutube.ru/video/private/3ccdc6ef20f8d93b76a3c11400680030/?p=jybZfNjs3FBcfKV-hZNqqQ"
+VIDEO_URL = "https://ok.ru/live/664807546380"
 OUTPUT_FILE = "stream.m3u8"
 
 
 def get_fresh_url() -> str:
-    cmd = ["yt-dlp", "--no-warnings", "-f", "b", "-g", VIDEO_URL]
+    cmd = ["yt-dlp", "--no-warnings", "-g", VIDEO_URL]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
     if not lines:
@@ -24,7 +24,7 @@ def main() -> None:
     playlist = (
         "#EXTM3U\n"
         "#EXT-X-VERSION:3\n"
-        '#EXTINF:-1 group-title="Rutube",Rutube Video\n'
+        '#EXTINF:-1 group-title="OK Live",OK Live Stream\n'
         f"{stream_url}\n"
     )
 
