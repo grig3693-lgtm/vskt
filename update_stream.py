@@ -23,6 +23,12 @@ STREAMS = [
         "url": "https://ok.ru/live/664807546380",
         "output": "stream1.m3u8",
     },
+    {
+         "name": "OK Live 2",
+         "group": "OK Live",
+         "url": "https://ok.ru/live/8602647142043",
+        "output": "stream2.m3u8",
+    },
     # Ավելացրեք մյուս հղումները այս նույն ձևաչափով.
     # {
     #     "name": "OK Live 2",
