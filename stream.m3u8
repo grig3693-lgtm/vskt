@@ -1,4 +1,4 @@
 #EXTM3U
 #EXT-X-VERSION:3
-#EXTINF:-1 group-title="Rutube",Rutube Video
-https://river-1.rutube.ru/hls-vod/3_PJMPViYMcSCeudCoq1_w/1795958640/3488/0x5000c500fae08434/3b656cfe4c5c41e0baedf848f38d20ec.mp4.m3u8?i=1920x1080_3609
+#EXTINF:-1 group-title="OK Live",OK Live Stream
+https://vsd494.okcdn.ru/hls/392147831308.m3u8/sig/-KqxnWoXW50/expires/1795454123182/srcIp/20.186.238.34/urls/95.163.35.104/clientType/0/srcAg/CHROME/mid/664807546380/392147831308_high/index.m3u8
