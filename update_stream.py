@@ -67,6 +67,17 @@ STREAMS = [
         "origin": "https://ok.ru",
         "user_agent": DEFAULT_USER_AGENT,
     },
+     {
+        "name": "OK Live 3",
+        "group": "OK",
+        "tvg_id": "vk.-44869284_456248275",
+        "tvg_logo": "https://raw.githubusercontent.com/grig3693-lgtm/vskt/refs/heads/main/logos/other.png",
+        "url": "https://vkvideo.ru/video-18496184_456260645",
+        "output": "stream5.m3u8",
+        "referer": "https://vkvideo.ru/video-18496184_456260645",
+        "origin": "https://vkvideo.ru/",
+        "user_agent": DEFAULT_USER_AGENT,
+    },
 ]
 
 
