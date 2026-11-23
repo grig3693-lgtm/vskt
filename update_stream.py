@@ -84,7 +84,7 @@ STREAMS = [
         "tvg_id": "vk.-44869284_456248275",
         "tvg_logo": "https://raw.githubusercontent.com/grig3693-lgtm/vskt/refs/heads/main/logos/other.png",
         "url": "https://vkvideo.ru/video-49246642_456257599",
-        "output": "stream5.m3u8",
+        "output": "stream6.m3u8",
         "referer": "https://vkvideo.ru/video-49246642_456257599",
         "origin": "https://vkvideo.ru/",
         "user_agent": DEFAULT_USER_AGENT,
