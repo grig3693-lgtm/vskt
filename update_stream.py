@@ -46,16 +46,16 @@ STREAMS = [
     },
     # Օրինակ՝ այլ հարթակի կամ ուղղակի .m3u8 հղման համար.
      {
-         "name": "VK Stream",
-         "group": "VK",
-         "tvg_id": "other.channel",
-         "tvg_logo": "https://raw.githubusercontent.com/grig3693-lgtm/vskt/refs/heads/main/logos/other.png",
-         "url": "https://vksport.vkvideo.ru/live-44869284_456248275",
-         "output": "stream3.m3u8",
-         "referer": "https://vksport.vkvideo.ru/",
-         "origin": "https://vksport.vkvideo.ru",
-         "user_agent": DEFAULT_USER_AGENT,
-     },
+        "name": "VK Stream",
+        "group": "VK",
+        "tvg_id": "vk.-44869284_456248275",
+        "tvg_logo": "https://raw.githubusercontent.com/grig3693-lgtm/vskt/refs/heads/main/logos/other.png",
+        "url": "https://vkvideo.ru/video-44869284_456248275",
+        "output": "stream3.m3u8",
+        "referer": "https://vkvideo.ru/video-44869284_456248275",
+        "origin": "https://vkvideo.ru",
+        "user_agent": DEFAULT_USER_AGENT,
+    },
 ]
 
 
