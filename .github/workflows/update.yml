@@ -34,11 +34,14 @@ jobs:
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add "*.m3u8" playlist.m3u
-          git status --short
+          git add -f "*.m3u8" playlist.m3u
+
           if ! git diff --quiet || ! git diff --staged --quiet; then
+            echo "Changes detected in playlists:"
+            git status --short
             git commit -m "Update stream playlists"
             git push
+            echo "Committed and pushed updated playlists successfully."
           else
-            echo "No changes to commit."
+            echo "No changes detected in *.m3u8 or playlist.m3u. Skipping commit and push."
           fi
