@@ -29,12 +29,6 @@ STREAMS = [
          "url": "https://ok.ru/live/8602647142043",
         "output": "stream2.m3u8",
     },
-     {
-         "name": "OK Live 3",
-         "group": "OK Live",
-         "url": "https://vksport.vkvideo.ru/live-44869284_456248275",
-        "output": "stream3.m3u8",
-    },
     # Ավելացրեք մյուս հղումները այս նույն ձևաչափով.
     # {
     #     "name": "OK Live 2",
