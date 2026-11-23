@@ -13,81 +13,93 @@ REPO_NAME = os.getenv("REPO_NAME", "vskt")
 BRANCH = os.getenv("GIT_BRANCH", "main")
 PLAYLIST_FILE = "playlist.m3u"
 
-# Դադար հարցումների միջև (վայրկյաններով), որպեսզի OK.ru-ն չսահմանափակի հարցումները
+# Դադար հարցումների միջև (վայրկյաններով)
 REQUEST_DELAY_SECONDS = 1.5
+
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+)
 
 STREAMS = [
     {
         "name": "OK Live 1",
         "group": "OK Live",
+        "tvg_id": "ok.live.664807546380",
+        "tvg_logo": "",
         "url": "https://ok.ru/live/664807546380",
         "output": "stream1.m3u8",
+        "referer": "https://ok.ru/live/664807546380",
+        "origin": "https://ok.ru",
+        "user_agent": DEFAULT_USER_AGENT,
     },
     {
-         "name": "OK Live 2",
-         "group": "OK Live",
-         "url": "https://ok.ru/live/8602647142043",
+        "name": "OK Live 2",
+        "group": "OK Live",
+        "tvg_id": "ok.live.664807546380",
+        "tvg_logo": "",
+        "url": "https://ok.ru/live/8602647142043",
         "output": "stream2.m3u8",
+        "referer": "https://ok.ru/live/8602647142043",
+        "origin": "https://ok.ru",
+        "user_agent": DEFAULT_USER_AGENT,
     },
-    # Ավելացրեք մյուս հղումները այս նույն ձևաչափով.
-    # {
-    #     "name": "OK Live 2",
-    #     "group": "OK Live",
-    #     "url": "https://ok.ru/live/8602647142043",
-    #     "output": "stream2.m3u8",
-    # },
+    # Օրինակ՝ այլ հարթակի կամ ուղղակի .m3u8 հղման համար.
+     {
+         "name": "VK Stream",
+         "group": "VK",
+         "tvg_id": "other.channel",
+         "tvg_logo": "https://raw.githubusercontent.com/grig3693-lgtm/vskt/refs/heads/main/logos/other.png",
+         "url": "https://vksport.vkvideo.ru/live-44869284_456248275",
+         "output": "stream3.m3u8",
+         "referer": "https://vksport.vkvideo.ru/",
+         "origin": "https://vksport.vkvideo.ru",
+         "user_agent": DEFAULT_USER_AGENT,
+     },
 ]
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
-)
 
-
-def detect_referer(video_url: str, stream_url: str) -> str:
+def detect_referer(video_url: str, stream_url: str = "", custom_referer: str = "") -> str:
+    if custom_referer:
+        return custom_referer
     match = re.search(r"/mid/(\d+)", stream_url)
     if match:
         return f"https://ok.ru/live/{match.group(1)}"
     if "ok.ru" in video_url:
         return video_url
     parsed = urlparse(video_url)
-    return f"{parsed.scheme}://{parsed.netloc}/" if parsed.netloc else video_url
+    return f"{parsed.scheme}://{parsed.netloc}/" if parsed.netloc else ""
 
 
-def resolve_channel_referer(video_url: str) -> str:
-    match = re.search(r"/live/(\d+)", video_url)
-    if match:
-        return f"https://ok.ru/live/{match.group(1)}"
-    if "ok.ru" in video_url:
-        return video_url
-    parsed = urlparse(video_url)
-    return f"{parsed.scheme}://{parsed.netloc}/" if parsed.netloc else "https://ok.ru/"
+def detect_origin(referer: str, video_url: str, custom_origin: str = "") -> str:
+    if custom_origin:
+        return custom_origin
+    for candidate in (referer, video_url):
+        if not candidate:
+            continue
+        parsed = urlparse(candidate)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+    return ""
 
 
-def get_ytdlp_info(video_url: str) -> dict:
-    cmd = [
-        "yt-dlp",
-        "--no-warnings",
-        "--user-agent",
-        USER_AGENT,
-        "--referer",
-        video_url,
-        "-J",
-        video_url,
-    ]
+def get_ytdlp_info(video_url: str, referer: str, user_agent: str) -> dict:
+    cmd = ["yt-dlp", "--no-warnings", "--user-agent", user_agent]
+    if referer:
+        cmd.extend(["--referer", referer])
+    cmd.extend(["-J", video_url])
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     return json.loads(result.stdout)
 
 
-def fetch_text(url: str, referer: str) -> str:
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Referer": referer,
-            "Origin": "https://ok.ru",
-        },
-    )
+def fetch_text(url: str, referer: str, origin: str, user_agent: str) -> str:
+    headers = {"User-Agent": user_agent}
+    if referer:
+        headers["Referer"] = referer
+    if origin:
+        headers["Origin"] = origin
+
+    req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=20) as resp:
         return resp.read().decode("utf-8", errors="replace")
 
@@ -172,63 +184,101 @@ def build_master_from_formats(info: dict, stream_name: str) -> str | None:
     return "\n".join(lines) + "\n"
 
 
-def generate_stream_m3u8(video_url: str, stream_name: str, output_file: str) -> bool:
+def generate_stream_m3u8(stream_cfg: dict, stream_name: str, output_file: str) -> tuple[bool, str, str]:
+    video_url = stream_cfg.get("url") or ""
+    custom_referer = stream_cfg.get("referer") or ""
+    custom_origin = stream_cfg.get("origin") or ""
+    user_agent = stream_cfg.get("user_agent") or DEFAULT_USER_AGENT
+
+    initial_referer = detect_referer(video_url, custom_referer=custom_referer)
+    info = None
+
     try:
-        info = get_ytdlp_info(video_url)
+        info = get_ytdlp_info(video_url, referer=initial_referer, user_agent=user_agent)
     except subprocess.CalledProcessError as exc:
         print(f"[{stream_name}] yt-dlp failed: {exc.stderr.strip()}", file=sys.stderr)
-        return False
     except Exception as exc:
         print(f"[{stream_name}] Error parsing yt-dlp info: {exc}", file=sys.stderr)
-        return False
 
-    playlist = build_master_from_formats(info, stream_name)
+    playlist = None
+    effective_url = video_url
 
-    if not playlist:
-        fallback_url = info.get("url") or ""
-        if not fallback_url:
-            print(f"[{stream_name}] No playable URL found.", file=sys.stderr)
-            return False
-
-        referer = detect_referer(video_url, fallback_url)
-        try:
-            manifest_text = fetch_text(fallback_url, referer=referer)
-            playlist = build_master_from_manifest(manifest_text, base_url=fallback_url)
-        except Exception as exc:
-            print(f"[{stream_name}] Manifest check failed ({exc}).", file=sys.stderr)
-            playlist = None
-
+    if info:
+        playlist = build_master_from_formats(info, stream_name)
         if not playlist:
+            candidate_url = info.get("url") or ""
+            if candidate_url:
+                effective_url = candidate_url
+                referer = detect_referer(video_url, effective_url, custom_referer)
+                origin = detect_origin(referer, video_url, custom_origin)
+                try:
+                    manifest_text = fetch_text(effective_url, referer=referer, origin=origin, user_agent=user_agent)
+                    playlist = build_master_from_manifest(manifest_text, base_url=effective_url)
+                except Exception as exc:
+                    print(f"[{stream_name}] Manifest check failed ({exc}).", file=sys.stderr)
+
+    # Պահեստային ճյուղ՝ եթե yt-dlp-ն չի մշակել հղումը, բայց դա ուղղակի մանիֆեստ/հղում է
+    if not playlist:
+        referer = detect_referer(video_url, effective_url, custom_referer)
+        origin = detect_origin(referer, video_url, custom_origin)
+        if ".m3u8" in video_url.lower():
+            try:
+                manifest_text = fetch_text(video_url, referer=referer, origin=origin, user_agent=user_agent)
+                playlist = build_master_from_manifest(manifest_text, base_url=video_url)
+            except Exception as exc:
+                print(f"[{stream_name}] Direct m3u8 fetch failed ({exc}).", file=sys.stderr)
+
+        if not playlist and info and info.get("url"):
             playlist = (
                 "#EXTM3U\n"
                 "#EXT-X-VERSION:5\n"
                 f'#EXT-X-STREAM-INF:BANDWIDTH=2000000,NAME="{stream_name}"\n'
-                f"{fallback_url}\n"
+                f"{info['url']}\n"
                 "#EXT-X-INDEPENDENT-SEGMENTS\n"
             )
+        elif not playlist and ".m3u8" in video_url.lower():
+            playlist = (
+                "#EXTM3U\n"
+                "#EXT-X-VERSION:5\n"
+                f'#EXT-X-STREAM-INF:BANDWIDTH=2000000,NAME="{stream_name}"\n'
+                f"{video_url}\n"
+                "#EXT-X-INDEPENDENT-SEGMENTS\n"
+            )
+
+    if not playlist:
+        return False, initial_referer, user_agent
 
     with open(output_file, "w", encoding="utf-8", newline="\n") as f:
         f.write(playlist)
 
+    final_referer = detect_referer(video_url, effective_url, custom_referer)
     print(f"[{stream_name}] Wrote {output_file} successfully.")
-    return True
+    return True, final_referer, user_agent
 
 
 def build_combined_playlist(generated_entries: list[dict]) -> str:
     lines: list[str] = ["#EXTM3U"]
     for item in generated_entries:
         name = item["name"]
-        group = item.get("group") or "OK Live"
+        group = item.get("group") or "Live"
         filename = item["output"]
-        referer = item.get("referer") or "https://ok.ru/"
+        referer = item.get("referer") or ""
+        user_agent = item.get("user_agent") or DEFAULT_USER_AGENT
         raw_url = (
             f"https://raw.githubusercontent.com/{REPO_OWNER}/{REPO_NAME}"
             f"/refs/heads/{BRANCH}/{filename}"
         )
 
-        lines.append(f'#EXTINF:-1 group-title="{group}",{name}')
-        lines.append(f"#EXTVLCOPT:http-user-agent={USER_AGENT}")
-        lines.append(f"#EXTVLCOPT:http-referrer={referer}")
+        attrs = [f'group-title="{group}"']
+        if item.get("tvg_id"):
+            attrs.append(f'tvg-id="{item["tvg_id"]}"')
+        if item.get("tvg_logo"):
+            attrs.append(f'tvg-logo="{item["tvg_logo"]}"')
+
+        lines.append(f"#EXTINF:-1 {' '.join(attrs)},{name}")
+        lines.append(f"#EXTVLCOPT:http-user-agent={user_agent}")
+        if referer:
+            lines.append(f"#EXTVLCOPT:http-referrer={referer}")
         lines.append(raw_url)
     return "\n".join(lines) + "\n"
 
@@ -242,7 +292,7 @@ def main() -> None:
 
     for index, stream in enumerate(STREAMS):
         name = stream.get("name") or f"Stream {index + 1}"
-        group = stream.get("group") or "OK Live"
+        group = stream.get("group") or "Live"
         url = stream.get("url") or ""
         output_file = stream.get("output") or f"stream{index + 1}.m3u8"
 
@@ -250,14 +300,17 @@ def main() -> None:
             print(f"[{name}] Missing URL, skipping.", file=sys.stderr)
             continue
 
-        ok = generate_stream_m3u8(url, name, output_file)
+        ok, resolved_referer, resolved_ua = generate_stream_m3u8(stream, name, output_file)
         if ok:
             successful_entries.append(
                 {
                     "name": name,
                     "group": group,
+                    "tvg_id": stream.get("tvg_id") or "",
+                    "tvg_logo": stream.get("tvg_logo") or "",
                     "output": output_file,
-                    "referer": resolve_channel_referer(url),
+                    "referer": resolved_referer,
+                    "user_agent": resolved_ua,
                 }
             )
 
