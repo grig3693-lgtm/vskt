@@ -7,3 +7,7 @@ https://raw.githubusercontent.com/grig3693-lgtm/vskt/refs/heads/main/stream1.m3u
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36
 #EXTVLCOPT:http-referrer=https://ok.ru/live/8602647142043
 https://raw.githubusercontent.com/grig3693-lgtm/vskt/refs/heads/main/stream2.m3u8
+#EXTINF:-1 group-title="VK" tvg-id="vk.-44869284_456248275" tvg-logo="https://raw.githubusercontent.com/grig3693-lgtm/vskt/refs/heads/main/logos/other.png",VK Stream
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36
+#EXTVLCOPT:http-referrer=https://vkvideo.ru/video-44869284_456248275
+https://raw.githubusercontent.com/grig3693-lgtm/vskt/refs/heads/main/stream3.m3u8
