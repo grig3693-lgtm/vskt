@@ -2,7 +2,7 @@ name: Update VK Stream M3U8
 
 on:
   schedule:
-    - cron: '15 */3 * * *'
+    - cron: '0 */3 * * *'
   workflow_dispatch:
 
 permissions:
