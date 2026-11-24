@@ -31,6 +31,8 @@ jobs:
         run: python update_stream.py
 
       - name: Commit and push if playlists changed
+        env:
+          GIT_BRANCH: ${{ github.ref_name }}
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
@@ -40,6 +42,7 @@ jobs:
             echo "Changes detected in playlists:"
             git status --short
             git commit -m "Update stream playlists"
+            git pull --rebase --autostash origin "$GIT_BRANCH"
             git push
             echo "Committed and pushed updated playlists successfully."
           else
