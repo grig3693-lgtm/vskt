@@ -24,11 +24,27 @@ jobs:
         run: pip install -U yt-dlp
 
       - name: Fetch fresh stream playlists and build playlist.m3u
-        env:
-          REPO_OWNER: ${{ github.repository_owner }}
-          REPO_NAME: ${{ github.event.repository.name }}
-          GIT_BRANCH: ${{ github.ref_name }}
-        run: python update_stream.py
+        run: |
+          set -e
+          max_attempts=3
+          attempt=1
+
+          while true; do
+            echo "Attempt $attempt of $max_attempts..."
+            if python update_stream.py; then
+              echo "Succeeded on attempt $attempt"
+              break
+            fi
+
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "All $max_attempts attempts failed."
+              exit 1
+            fi
+
+            attempt=$((attempt + 1))
+            echo "Failed. Waiting 15 seconds before retry..."
+            sleep 15
+          done
 
       - name: Commit and push if playlists changed
         env:
