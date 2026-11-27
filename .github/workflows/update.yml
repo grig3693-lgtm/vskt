@@ -24,6 +24,9 @@ jobs:
         run: pip install -U yt-dlp
 
       - name: Fetch fresh stream playlists and build playlist.m3u
+        env:
+          VIJU_REFRESH_TOKEN: ${{ secrets.VIJU_REFRESH_TOKEN }}
+          VIJU_VISITOR_ID: ${{ secrets.VIJU_VISITOR_ID }}
         run: |
           max_attempts=3
           attempt=1
