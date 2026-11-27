@@ -13,6 +13,9 @@ REPO_NAME = os.getenv("REPO_NAME", "vskt")
 BRANCH = os.getenv("GIT_BRANCH", "main")
 PLAYLIST_FILE = "playlist.m3u"
 
+VIJU_REFRESH_URL = "https://api.viju.ru/v2/sessions/refresh"
+VIJU_PLAYLIST_URL_TEMPLATE = "https://api.viju.ru/api/v1/tv/channels/viju-tv1000-novella/playlist"
+
 # Դադար հարցումների միջև (վայրկյաններով)
 REQUEST_DELAY_SECONDS = 1.5
 
@@ -44,8 +47,7 @@ STREAMS = [
         "origin": "https://ok.ru",
         "user_agent": DEFAULT_USER_AGENT,
     },
-    # Օրինակ՝ այլ հարթակի կամ ուղղակի .m3u8 հղման համար.
-     {
+    {
         "name": "VK Stream",
         "group": "VK",
         "tvg_id": "vk.-44869284_456248275",
@@ -56,7 +58,7 @@ STREAMS = [
         "origin": "https://vkvideo.ru",
         "user_agent": DEFAULT_USER_AGENT,
     },
-     {
+    {
         "name": "OK Stream",
         "group": "OK",
         "tvg_id": "vk.-44869284_456248275",
@@ -67,7 +69,7 @@ STREAMS = [
         "origin": "https://ok.ru",
         "user_agent": DEFAULT_USER_AGENT,
     },
-     {
+    {
         "name": "OK Live 3",
         "group": "OK",
         "tvg_id": "vk.-44869284_456248275",
@@ -87,6 +89,19 @@ STREAMS = [
         "output": "stream6.m3u8",
         "referer": "https://vkvideo.ru/video-49246642_456257599",
         "origin": "https://vkvideo.ru/",
+        "user_agent": DEFAULT_USER_AGENT,
+    },
+    # Viju ալիքների օրինակ՝
+    {
+        "name": "viju TV1000 Novella",
+        "group": "Viju",
+        "tvg_id": "viju.tv1000.novella",
+        "tvg_logo": "",
+        "source": "viju",
+        "slug": "viju-tv1000-novella",
+        "output": "stream7.m3u8",
+        "referer": "https://viju.ru/",
+        "origin": "https://viju.ru",
         "user_agent": DEFAULT_USER_AGENT,
     },
 ]
@@ -114,6 +129,73 @@ def detect_origin(referer: str, video_url: str, custom_origin: str = "") -> str:
         if parsed.scheme and parsed.netloc:
             return f"{parsed.scheme}://{parsed.netloc}"
     return ""
+
+
+def http_json_request(
+    url: str,
+    method: str = "GET",
+    headers: dict | None = None,
+    payload: dict | None = None,
+    timeout: int = 20,
+) -> dict:
+    req_headers = {"User-Agent": DEFAULT_USER_AGENT}
+    if headers:
+        req_headers.update(headers)
+
+    data_bytes = None
+    if payload is not None:
+        req_headers.setdefault("Content-Type", "application/json")
+        data_bytes = json.dumps(payload).encode("utf-8")
+
+    req = urllib.request.Request(url, data=data_bytes, headers=req_headers, method=method)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        body = resp.read().decode("utf-8", errors="replace")
+        return json.loads(body)
+
+
+def fetch_viju_access_token(user_agent: str) -> str:
+    refresh_token = os.getenv("VIJU_REFRESH_TOKEN", "").strip()
+    if not refresh_token:
+        raise RuntimeError("VIJU_REFRESH_TOKEN environment variable is not set.")
+
+    visitor_id = os.getenv("VIJU_VISITOR_ID", "").strip()
+    headers = {
+        "User-Agent": user_agent,
+        "Origin": "https://viju.ru",
+        "Referer": "https://viju.ru/",
+    }
+    if visitor_id:
+        headers["visitorid"] = visitor_id
+
+    data = http_json_request(
+        VIJU_REFRESH_URL,
+        method="POST",
+        headers=headers,
+        payload={"refresh_token": refresh_token},
+    )
+    access_token = (data.get("access_token") or "").strip()
+    if not access_token:
+        raise RuntimeError("No access_token returned from /v2/sessions/refresh.")
+    return access_token
+
+
+def fetch_viju_stream_url(slug: str, access_token: str, user_agent: str) -> str:
+    visitor_id = os.getenv("VIJU_VISITOR_ID", "").strip()
+    headers = {
+        "User-Agent": user_agent,
+        "Origin": "https://viju.ru",
+        "Referer": "https://viju.ru/",
+        "Authorization": f"Bearer {access_token}",
+    }
+    if visitor_id:
+        headers["visitorid"] = visitor_id
+
+    url = VIJU_PLAYLIST_URL_TEMPLATE.format(slug=slug)
+    data = http_json_request(url, method="GET", headers=headers)
+    stream_url = (data.get("url") or "").strip()
+    if not stream_url:
+        raise RuntimeError(f"No stream url returned for Viju slug '{slug}'.")
+    return stream_url
 
 
 def get_ytdlp_info(video_url: str, referer: str, user_agent: str) -> dict:
@@ -217,21 +299,43 @@ def build_master_from_formats(info: dict, stream_name: str) -> str | None:
     return "\n".join(lines) + "\n"
 
 
-def generate_stream_m3u8(stream_cfg: dict, stream_name: str, output_file: str) -> tuple[bool, str, str]:
-    video_url = stream_cfg.get("url") or ""
+def generate_stream_m3u8(
+    stream_cfg: dict,
+    stream_name: str,
+    output_file: str,
+    viju_token: str | None = None,
+) -> tuple[bool, str, str]:
+    source_type = (stream_cfg.get("source") or "").strip().lower()
+    video_url = (stream_cfg.get("url") or "").strip()
     custom_referer = stream_cfg.get("referer") or ""
     custom_origin = stream_cfg.get("origin") or ""
     user_agent = stream_cfg.get("user_agent") or DEFAULT_USER_AGENT
 
+    if source_type == "viju":
+        slug = (stream_cfg.get("slug") or "").strip()
+        if not slug:
+            print(f"[{stream_name}] Missing Viju slug.", file=sys.stderr)
+            return False, custom_referer or "https://viju.ru/", user_agent
+        if not viju_token:
+            print(f"[{stream_name}] Missing Viju access token.", file=sys.stderr)
+            return False, custom_referer or "https://viju.ru/", user_agent
+        try:
+            video_url = fetch_viju_stream_url(slug, viju_token, user_agent)
+        except Exception as exc:
+            print(f"[{stream_name}] Viju playlist fetch failed: {exc}", file=sys.stderr)
+            return False, custom_referer or "https://viju.ru/", user_agent
+
     initial_referer = detect_referer(video_url, custom_referer=custom_referer)
     info = None
 
-    try:
-        info = get_ytdlp_info(video_url, referer=initial_referer, user_agent=user_agent)
-    except subprocess.CalledProcessError as exc:
-        print(f"[{stream_name}] yt-dlp failed: {exc.stderr.strip()}", file=sys.stderr)
-    except Exception as exc:
-        print(f"[{stream_name}] Error parsing yt-dlp info: {exc}", file=sys.stderr)
+    # Ուղղակի .m3u8 հղման դեպքում yt-dlp-ի վրա ժամանակ չենք վատնում
+    if ".m3u8" not in video_url.lower():
+        try:
+            info = get_ytdlp_info(video_url, referer=initial_referer, user_agent=user_agent)
+        except subprocess.CalledProcessError as exc:
+            print(f"[{stream_name}] yt-dlp failed: {exc.stderr.strip()}", file=sys.stderr)
+        except Exception as exc:
+            print(f"[{stream_name}] Error parsing yt-dlp info: {exc}", file=sys.stderr)
 
     playlist = None
     effective_url = video_url
@@ -250,7 +354,6 @@ def generate_stream_m3u8(stream_cfg: dict, stream_name: str, output_file: str) -
                 except Exception as exc:
                     print(f"[{stream_name}] Manifest check failed ({exc}).", file=sys.stderr)
 
-    # Պահեստային ճյուղ՝ եթե yt-dlp-ն չի մշակել հղումը, բայց դա ուղղակի մանիֆեստ/հղում է
     if not playlist:
         referer = detect_referer(video_url, effective_url, custom_referer)
         origin = detect_origin(referer, video_url, custom_origin)
@@ -321,19 +424,39 @@ def main() -> None:
         print("STREAMS list is empty.", file=sys.stderr)
         sys.exit(1)
 
+    has_viju = any((s.get("source") or "").strip().lower() == "viju" for s in STREAMS)
+    viju_token: str | None = None
+
+    if has_viju:
+        try:
+            viju_token = fetch_viju_access_token(DEFAULT_USER_AGENT)
+            print("[Viju] Refreshed access_token successfully.")
+        except Exception as exc:
+            print(f"[Viju] Token refresh failed: {exc}", file=sys.stderr)
+
     successful_entries: list[dict] = []
 
     for index, stream in enumerate(STREAMS):
         name = stream.get("name") or f"Stream {index + 1}"
         group = stream.get("group") or "Live"
-        url = stream.get("url") or ""
+        source_type = (stream.get("source") or "").strip().lower()
+        url = (stream.get("url") or "").strip()
+        slug = (stream.get("slug") or "").strip()
         output_file = stream.get("output") or f"stream{index + 1}.m3u8"
 
-        if not url:
+        if source_type != "viju" and not url:
             print(f"[{name}] Missing URL, skipping.", file=sys.stderr)
             continue
+        if source_type == "viju" and not slug:
+            print(f"[{name}] Missing Viju slug, skipping.", file=sys.stderr)
+            continue
 
-        ok, resolved_referer, resolved_ua = generate_stream_m3u8(stream, name, output_file)
+        ok, resolved_referer, resolved_ua = generate_stream_m3u8(
+            stream,
+            name,
+            output_file,
+            viju_token=viju_token,
+        )
         if ok:
             successful_entries.append(
                 {
