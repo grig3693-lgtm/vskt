@@ -267,10 +267,12 @@ def fetch_viju_stream_url(slug: str, access_token: str, user_agent: str) -> str:
     visitor_id = os.getenv("VIJU_VISITOR_ID", "").strip()
     headers = {
         "User-Agent": user_agent,
-        "Accept": "application/json, text/plain, */*",
+        "Accept": "*/*",
+        "Accept-Language": "ru-RU",
         "Origin": "https://viju.ru",
         "Referer": "https://viju.ru/",
         "Authorization": f"Bearer {access_token}",
+        "x-timezone": "0",
         "x-request-id": uuid.uuid4().hex,
     }
     if visitor_id:
