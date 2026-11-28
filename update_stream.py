@@ -169,8 +169,17 @@ def http_json_request(
         data_bytes = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
     req = urllib.request.Request(url, data=data_bytes, headers=req_headers, method=method)
+
+    proxy_url = os.getenv("VIJU_PROXY_URL", "").strip()
+    if proxy_url:
+        opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
+        )
+    else:
+        opener = urllib.request.build_opener()
+
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with opener.open(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8", errors="replace")
             return json.loads(body)
     except urllib.error.HTTPError as err:
