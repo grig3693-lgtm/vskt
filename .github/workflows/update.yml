@@ -20,13 +20,15 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install latest yt-dlp
-        run: pip install -U yt-dlp
+      - name: Install dependencies
+        run: pip install -U yt-dlp PyNaCl PySocks
 
       - name: Fetch fresh stream playlists and build playlist.m3u
         env:
           VIJU_REFRESH_TOKEN: ${{ secrets.VIJU_REFRESH_TOKEN }}
           VIJU_VISITOR_ID: ${{ secrets.VIJU_VISITOR_ID }}
+          VIJU_PROXY_URL: ${{ secrets.VIJU_PROXY_URL }}
+          REPO_SECRETS_TOKEN: ${{ secrets.REPO_SECRETS_TOKEN }}
         run: |
           max_attempts=3
           attempt=1
